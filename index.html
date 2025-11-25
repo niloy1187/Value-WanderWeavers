@@ -1,0 +1,801 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Value WanderWeavers // TERMINAL</title>
+    
+    <!-- REACT 18 UMD (Critical for createRoot fix) -->
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    
+    <!-- BABEL STANDALONE (Compiles TSX in browser) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- LEAFLET -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- TAILWIND -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'void': '#050505',
+              'panel': '#0A0A0A',
+              'neon-gold': '#FFD700',
+              'neon-cyan': '#00F0FF',
+              'neon-red': '#FF2A2A',
+              'cream': '#F0F0F0',
+            },
+            fontFamily: {
+              display: ['Syncopate', 'sans-serif'],
+              hud: ['Orbitron', 'sans-serif'],
+              mono: ['Share Tech Mono', 'monospace'],
+            },
+            animation: {
+              'spin-slow': 'spin 8s linear infinite',
+              'ticker': 'ticker 30s linear infinite',
+              'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'glitch': 'glitch 1s linear infinite',
+              'scan': 'scan 8s linear infinite',
+            },
+            keyframes: {
+               ticker: {
+                 '0%': { transform: 'translateX(100%)' },
+                 '100%': { transform: 'translateX(-100%)' }
+               },
+               scan: {
+                 '0%': { backgroundPosition: '0% 0%' },
+                 '100%': { backgroundPosition: '0% 100%' }
+               },
+               glitch: {
+                  '2%, 64%': { transform: 'translate(2px,0) skew(0deg)' },
+                  '4%, 60%': { transform: 'translate(-2px,0) skew(0deg)' },
+                  '62%': { transform: 'translate(0,0) skew(5deg)' }
+               }
+            },
+            backgroundImage: {
+              'grid-pattern': "linear-gradient(to right, #1a1a1a 1px, transparent 1px), linear-gradient(to bottom, #1a1a1a 1px, transparent 1px)",
+            }
+          }
+        }
+      }
+    </script>
+
+    <!-- FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+      body {
+        background-color: #050505;
+        color: #F0F0F0;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+      
+      /* CRT & NOISE FX */
+      .crt-overlay {
+        position: fixed; inset: 0; pointer-events: none; z-index: 9998;
+        background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.1) 50%), linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03));
+        background-size: 100% 3px, 4px 100%;
+        opacity: 0.3;
+      }
+      .noise-overlay {
+        position: fixed; inset: 0; pointer-events: none; z-index: 9997; opacity: 0.04;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+      }
+
+      /* SCROLLBAR */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #050505; }
+      ::-webkit-scrollbar-thumb { background: #FFD700; border-radius: 0; }
+
+      /* GLITCH TEXT */
+      .cyber-glitch { position: relative; color: #fff; }
+      .cyber-glitch::before, .cyber-glitch::after {
+        content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #050505;
+      }
+      .cyber-glitch::before { left: 2px; text-shadow: -1px 0 #ff00c1; clip: rect(44px, 450px, 56px, 0); animation: glitch-anim 2.5s infinite linear alternate-reverse; }
+      .cyber-glitch::after { left: -2px; text-shadow: -1px 0 #00fff9; clip: rect(44px, 450px, 56px, 0); animation: glitch-anim2 3s infinite linear alternate-reverse; }
+      @keyframes glitch-anim { 0% { clip: rect(12px, 9999px, 81px, 0); } 100% { clip: rect(54px, 9999px, 42px, 0); } }
+      @keyframes glitch-anim2 { 0% { clip: rect(25px, 9999px, 96px, 0); } 100% { clip: rect(12px, 9999px, 64px, 0); } }
+
+      /* UTILS */
+      .clip-corner-br { clip-path: polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%); }
+      .blur-text { color: transparent; text-shadow: 0 0 8px rgba(255, 215, 0, 0.7); user-select: none; }
+      .text-balance { text-wrap: balance; }
+      
+      /* MAP MARKER */
+      .radar-marker { width: 12px; height: 12px; background: #FFD700; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #FFD700; position: relative; z-index: 20; }
+      .radar-ring { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 1px solid #FFD700; border-radius: 50%; animation: ping 2s infinite; opacity: 0; z-index: 10; }
+      @keyframes ping { 0% { width: 0; height: 0; opacity: 1; } 100% { width: 80px; height: 80px; opacity: 0; } }
+
+      /* TICKER */
+      .ticker-wrap { width: 100%; overflow: hidden; background: #000; border-bottom: 1px solid #333; height: 24px; display: flex; align-items: center; }
+      .ticker-move { display: inline-block; white-space: nowrap; animation: ticker 30s linear infinite; }
+      .ticker-item { display: inline-block; padding: 0 2rem; font-family: 'Share Tech Mono', monospace; font-size: 10px; color: #00F0FF; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+    <div class="crt-overlay"></div>
+    <div class="noise-overlay"></div>
+
+    <script type="text/babel" data-presets="typescript,react">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // --- CONSTANTS & DATA ---
+        const SECTORS = ['goa', 'himachal', 'rajasthan', 'kerala', 'uttarakhand', 'karnataka', 'meghalaya'];
+        
+        const PACKAGES = {
+            goa: {
+                title: "MISSION SECTOR: GOA",
+                subtitle: "Select your operational parameters for the Tropical Zone.",
+                coords: [15.2993, 74.1240],
+                missions: [
+                    { codename: "Goa_Budget_Blitz", price: "₹8,999", threat: "Low", vfm: "95%", duration: "4D/3N", brief: "A high-speed infiltration of North Goa's party sector.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Goa/Goa_Budget_Blitz.png'}], inclusions: ["Hostel Stay (Anjuna)", "Scooter Rental (2 Days)", "Entry to one beach club"], lockedInclusions: ["Secret 'Locals Only' Rave Location", "Discount Code for Thalassa"] },
+                    { codename: "Goa_Adrenaline_Rush", price: "₹14,500", threat: "Medium", vfm: "88%", duration: "4D/3N", brief: "Engage in high-risk aquatic operations.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Goa/Goa_Adrenaline_Rush.png'}], inclusions: ["3-Star Hotel (Calangute)", "Parasailing & Jetski", "Scuba Diving Taster"], lockedInclusions: ["Hidden Cove Map Coordinates", "Free GoPro Rental Voucher"] },
+                    { codename: "Goa_Southern_Serenity", price: "₹17,999", threat: "Low", vfm: "92%", duration: "5D/4N", brief: "Low-intensity mission focused on recuperation.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Goa/Goa_Southern_Serenity.png'}], inclusions: ["Boutique Resort (Palolem)", "Daily Yoga", "Private Kayak Tour"], lockedInclusions: ["Private Sunset Point Access", "Chef's Table Priority"] }
+                ]
+            },
+            himachal: {
+                title: "MISSION SECTOR: HIMACHAL",
+                subtitle: "Briefings for high-altitude and alpine operations.",
+                coords: [32.0836, 77.1711],
+                missions: [
+                    { codename: "Himachal_Alpine_Ascent", price: "₹12,999", threat: "Medium", vfm: "92%", duration: "6D/5N", brief: "Classic Manali deep-dive.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Himachal/Himachal_Alpine_Ascent.png'}], inclusions: ["Hotel Stay (Manali)", "Solang Valley", "Atal Tunnel"], lockedInclusions: ["Secret Hot Springs Location", "Off-road 4x4 Trail Map"] },
+                    { codename: "Himachal_Parvati_Pilgrim", price: "₹9,999", threat: "High", vfm: "96%", duration: "5D/4N", brief: "Infiltrate Parvati Valley.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Himachal/Himachal_Parvati_Pilgrim.png'}], inclusions: ["Guesthouses (Kasol)", "Kheerganga Trek", "Manikaran Sahib"], lockedInclusions: ["Full Moon Party Schedule", "Hidden Cafe in the Woods"] }
+                ]
+            },
+            rajasthan: {
+                title: "MISSION SECTOR: RAJASTHAN",
+                subtitle: "Engage targets in the Arid and Heritage Zones.",
+                coords: [27.0238, 74.2179],
+                missions: [
+                    { codename: "Rajasthan_Royal_Retreat", price: "₹15,999", threat: "Low", vfm: "90%", duration: "5D/4N", brief: "Two-city operation covering royal capitals.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Rajasthan/Rajasthan_Royal_Retreat.png'}], inclusions: ["3-Star Hotels", "AC Train", "Fort Tours"], lockedInclusions: ["Royal Family Tea Invite", "Private Stepwell Access"] },
+                    { codename: "Rajasthan_Desert_Dreamer", price: "₹11,999", threat: "Medium", vfm: "94%", duration: "4D/3N", brief: "Deep desert mission.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Rajasthan/Rajasthan_Desert_Dreamer.png'}], inclusions: ["Hotel (Jaisalmer)", "Desert Camp", "Camel Safari"], lockedInclusions: ["Dune Bashing 4x4 Session", "Midnight Stargazing Setup"] }
+                ]
+            },
+            kerala: {
+                title: "MISSION SECTOR: KERALA",
+                subtitle: "Aquatic, Plantation, and Wellness Operations.",
+                coords: [10.8505, 76.2711],
+                missions: [
+                    { codename: "Kerala_Backwater_Bliss", price: "₹13,999", threat: "Low", vfm: "93%", duration: "4D/3N", brief: "Quintessential Kerala mission.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Kerala/Kerala_Backwater_Bliss.png'}], inclusions: ["Private Houseboat", "All meals", "Kochi Heritage Hotel"], lockedInclusions: ["Toddy Shop Tour", "Sunset Canoe Upgrade"] },
+                    { codename: "Kerala_Varkala_Vagabond", price: "₹9,999", threat: "Low", vfm: "95%", duration: "5D/4N", brief: "Coastal operation focused on cliffs.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Kerala/Kerala_Varkala_Vagabond.png'}], inclusions: ["Cliff-side Guesthouse", "Yoga Class", "Surfing Lesson"], lockedInclusions: ["Secret Black Sand Beach", "Electronic Music Event Pass"] }
+                ]
+            },
+            uttarakhand: {
+                title: "MISSION SECTOR: UTTARAKHAND",
+                subtitle: "The Land of Gods.",
+                coords: [30.0668, 79.0193],
+                missions: [
+                    { codename: "UK_Ganges_Rider", price: "₹9,500", threat: "Medium", vfm: "94%", duration: "3D/2N", brief: "High-adrenaline riverine operation.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Uttarakhand/UK_Ganges_Rider.png'}], inclusions: ["Riverside Camp", "16km Rafting", "Cliff Jumping"], lockedInclusions: ["Beatles Ashram Secret Entrance", "Private Ganga Aarti Spot"] }
+                ]
+            },
+            karnataka: {
+                title: "MISSION SECTOR: KARNATAKA",
+                subtitle: "Ancient Ruins and Highlands.",
+                coords: [15.3173, 75.7139],
+                missions: [
+                    { codename: "KA_Hampi_Historian", price: "₹10,999", threat: "Low", vfm: "95%", duration: "4D/3N", brief: "Time-travel operation to ruins.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Karnataka/KA_Hampi_Historian.png'}], inclusions: ["Guesthouse", "Rickshaw Tour", "Coracle Ride"], lockedInclusions: ["Sunset Jam Session Spot", "Hidden Cave Paintings"] }
+                ]
+            },
+            meghalaya: {
+                title: "MISSION SECTOR: MEGHALAYA",
+                subtitle: "Abode of Clouds.",
+                coords: [25.4670, 91.3662],
+                missions: [
+                    { codename: "ME_Mawsynram_Monsoon", price: "₹16,500", threat: "Medium", vfm: "94%", duration: "5D/4N", brief: "Mission to wettest place on Earth.", media: [{src:'https://palatepilgrim.com/hubfs/VWW%20Destinations/Meghalaya/ME_Mawsynram_Monsoon.png'}], inclusions: ["Resort in Cherrapunji", "Mawsynram Visit", "Waterfall Trek"], lockedInclusions: ["Sacred Forest Entry", "Local Khasi Feast"] }
+                ]
+            }
+        };
+
+        // --- AUDIO ENGINE ---
+        class AudioCore {
+            constructor() {
+                this.ctx = null;
+                this.isPlaying = false;
+            }
+            
+            init() {
+                if (this.ctx) return;
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new Ctx();
+                
+                // Signal Chain
+                this.master = this.ctx.createGain();
+                this.master.gain.value = 0.8;
+                
+                // Dynamics
+                const comp = this.ctx.createDynamicsCompressor();
+                this.master.connect(comp);
+                comp.connect(this.ctx.destination);
+                
+                // SFX Bus
+                this.sfxBus = this.ctx.createGain();
+                this.sfxBus.gain.value = 0.9;
+                this.sfxBus.connect(this.master);
+                
+                // BGM Bus
+                this.bgmBus = this.ctx.createGain();
+                this.bgmBus.gain.value = 0.35; // Cinematic Level
+                this.bgmBus.connect(this.master);
+                
+                // Sidechain Ducking
+                this.ducker = this.ctx.createGain();
+                this.bgmBus.connect(this.ducker); 
+                // Note: simplified ducking logic implemented in playSFX
+            }
+
+            startBGM() {
+                if (!this.ctx || this.isPlaying) return;
+                this.isPlaying = true;
+                this.playDrone();
+            }
+
+            playDrone() {
+                // Reese Bass Drone
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                osc1.type = 'sawtooth';
+                osc2.type = 'sawtooth';
+                
+                // Chord: A Minor 9
+                osc1.frequency.value = 55; // A1
+                osc2.frequency.value = 55.5; // Detuned
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.Q.value = 5;
+                
+                // LFO for Filter
+                const lfo = this.ctx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.2; // Slow breathe
+                const lfoGain = this.ctx.createGain();
+                lfoGain.gain.value = 500;
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(filter.frequency);
+                filter.frequency.value = 800;
+                
+                const gain = this.ctx.createGain();
+                gain.gain.value = 0.4;
+                
+                osc1.connect(filter);
+                osc2.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.bgmBus);
+                
+                osc1.start();
+                osc2.start();
+                lfo.start();
+                
+                // Add High Pad Texture
+                const pad = this.ctx.createOscillator();
+                pad.type = 'triangle';
+                pad.frequency.value = 220; // A3
+                const padGain = this.ctx.createGain();
+                padGain.gain.value = 0.05;
+                pad.connect(padGain);
+                padGain.connect(this.bgmBus);
+                pad.start();
+            }
+
+            playSFX(type) {
+                if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                
+                const t = this.ctx.currentTime;
+                
+                // Duck BGM
+                this.bgmBus.gain.setTargetAtTime(0.1, t, 0.1);
+                this.bgmBus.gain.setTargetAtTime(0.35, t + 0.5, 0.5);
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.sfxBus);
+
+                if (type === 'hover') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1200, t);
+                    osc.frequency.exponentialRampToValueAtTime(800, t + 0.05);
+                    gain.gain.setValueAtTime(0.1, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+                    osc.start(t);
+                    osc.stop(t + 0.05);
+                } else if (type === 'click') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(200, t);
+                    osc.frequency.exponentialRampToValueAtTime(50, t + 0.1);
+                    gain.gain.setValueAtTime(0.3, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+                    osc.start(t);
+                    osc.stop(t + 0.1);
+                } else if (type === 'boot') {
+                     // Noise burst
+                     const bufferSize = this.ctx.sampleRate * 2;
+                     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                     const data = buffer.getChannelData(0);
+                     for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                     const noise = this.ctx.createBufferSource();
+                     noise.buffer = buffer;
+                     const nGain = this.ctx.createGain();
+                     nGain.gain.setValueAtTime(0.5, t);
+                     nGain.gain.exponentialRampToValueAtTime(0.001, t + 1);
+                     noise.connect(nGain);
+                     nGain.connect(this.sfxBus);
+                     noise.start(t);
+                } else if (type === 'success') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, t);
+                    osc.frequency.setValueAtTime(554, t + 0.1); // C#
+                    osc.frequency.setValueAtTime(659, t + 0.2); // E
+                    gain.gain.setValueAtTime(0.2, t);
+                    gain.gain.linearRampToValueAtTime(0, t + 0.5);
+                    osc.start(t);
+                    osc.stop(t + 0.5);
+                }
+            }
+        }
+        
+        const audio = new AudioCore();
+
+        // --- COMPONENTS ---
+
+        const LoadingScreen = ({ onComplete }) => {
+            const [clicked, setClicked] = useState(false);
+            const [progress, setProgress] = useState(0);
+
+            const handleStart = () => {
+                setClicked(true);
+                audio.init();
+                audio.playSFX('boot');
+                
+                // Boot Sequence
+                let p = 0;
+                const int = setInterval(() => {
+                    p += Math.random() * 5;
+                    if (p >= 100) {
+                        p = 100;
+                        clearInterval(int);
+                        audio.startBGM();
+                        setTimeout(onComplete, 500);
+                    }
+                    setProgress(p);
+                }, 50);
+            };
+
+            if (clicked) {
+                return (
+                    <div className="fixed inset-0 bg-void z-50 flex flex-col items-center justify-center p-8">
+                         <h1 className="text-4xl md:text-6xl font-display text-white cyber-glitch mb-4 text-center leading-tight" data-text="VALUE WANDERWEAVERS">
+                             VALUE <span className="text-neon-gold">WANDERWEAVERS</span>
+                         </h1>
+                         <div className="w-full max-w-md h-1 bg-gray-800 mt-8 relative overflow-hidden">
+                             <div className="absolute top-0 left-0 h-full bg-neon-gold" style={{ width: `${progress}%` }}></div>
+                         </div>
+                         <div className="font-mono text-xs text-neon-cyan mt-2">SYSTEM_BOOT::LOAD_ASSETS... {Math.round(progress)}%</div>
+                    </div>
+                )
+            }
+
+            return (
+                <div className="fixed inset-0 bg-void z-50 flex flex-col items-center justify-center select-none p-4">
+                    <div 
+                        onClick={handleStart}
+                        className="group relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center cursor-pointer"
+                    >
+                         <div className="absolute inset-0 border-2 border-gray-800 rounded-full animate-ping opacity-20"></div>
+                         <div className="absolute inset-4 border border-neon-gold/50 rounded-full animate-spin-slow"></div>
+                         <div className="absolute inset-0 border-4 border-neon-gold rounded-full shadow-[0_0_30px_rgba(255,215,0,0.3)] group-hover:shadow-[0_0_60px_rgba(255,215,0,0.6)] transition-all"></div>
+                         
+                         <div className="flex flex-col items-center z-10">
+                            <h1 className="font-display font-black text-5xl text-white tracking-tighter group-hover:text-neon-gold transition-colors">
+                                START
+                            </h1>
+                            <span className="text-[10px] font-mono text-neon-cyan tracking-widest mt-2 group-hover:scale-110 transition-transform">INITIALIZE SYSTEM</span>
+                         </div>
+                    </div>
+                    <div className="mt-12 text-center">
+                        <h2 className="font-hud text-lg md:text-2xl text-white tracking-widest mb-2">VALUE WANDERWEAVERS</h2>
+                        <p className="font-mono text-xs text-gray-500 uppercase tracking-[0.2em]">An Exclusive Palate Pilgrim Offering</p>
+                    </div>
+                </div>
+            );
+        };
+
+        const Header = ({ clearance }) => {
+            const [time, setTime] = useState("");
+            useEffect(() => {
+                setInterval(() => setTime(new Date().toLocaleTimeString('en-GB')), 1000);
+            }, []);
+
+            const tickers = [
+                "OPERATIVE_44 SECURED GOA_BLITZ",
+                "INTEL: KERALA PRICES DROPPING",
+                "AGENT_KAI REQUESTED SPITI CLEARANCE",
+                "SYSTEM ALERT: RAJASTHAN 85% CAPACITY"
+            ];
+
+            return (
+                <header className="sticky top-0 z-40 flex flex-col w-full bg-void/90 border-b border-gray-800 backdrop-blur-md">
+                    <div className="flex items-center justify-between px-4 h-16 md:h-20">
+                        <div className="flex items-center gap-4">
+                            <div className={`w-8 h-8 border-2 flex items-center justify-center ${clearance === 'AGENT' ? 'border-neon-gold' : 'border-gray-600'}`}>
+                                <div className={`w-3 h-3 rounded-full animate-pulse ${clearance === 'AGENT' ? 'bg-neon-gold' : 'bg-gray-500'}`} />
+                            </div>
+                            <div>
+                                <h1 className="font-display font-bold text-lg md:text-2xl text-white leading-none">
+                                    VALUE <span className="text-neon-gold">WANDERWEAVERS</span>
+                                </h1>
+                                <p className="hidden md:block font-mono text-[9px] text-gray-500 tracking-[0.3em] uppercase mt-1">
+                                    An Exclusive Palate Pilgrim Offering
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-6">
+                             <div className="text-right hidden md:block">
+                                 <div className="text-[9px] text-gray-500 uppercase tracking-widest">CLEARANCE</div>
+                                 <div className={`font-mono text-xs font-bold ${clearance === 'AGENT' ? 'text-neon-gold' : 'text-gray-400'}`}>
+                                     {clearance === 'AGENT' ? 'FIELD AGENT' : 'RECRUIT'}
+                                 </div>
+                             </div>
+                             <div className="text-right border-l border-gray-800 pl-4">
+                                 <div className="text-[9px] text-gray-500 uppercase tracking-widest hidden md:block">TIME</div>
+                                 <div className="font-mono text-white text-sm md:text-xl">{time}</div>
+                             </div>
+                        </div>
+                    </div>
+                    
+                    {/* TICKER */}
+                    <div className="ticker-wrap">
+                        <div className="ticker-move">
+                            {tickers.map((t, i) => <span key={i} className="ticker-item">{t} +++ </span>)}
+                            {tickers.map((t, i) => <span key={'d'+i} className="ticker-item">{t} +++ </span>)}
+                        </div>
+                    </div>
+                </header>
+            )
+        };
+
+        const Sidebar = ({ active, onNav, onDeal, onConsole }) => {
+            return (
+                <nav className="hidden md:flex w-64 bg-panel border-r border-gray-800 flex-col h-full relative z-30 shrink-0">
+                    <div className="p-6 border-b border-gray-800">
+                        <div className="text-[10px] font-hud text-neon-gold tracking-widest">TACTICAL NAV</div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                        <button 
+                            onClick={onDeal}
+                            className="w-full text-left p-4 mb-6 border-2 border-neon-gold text-neon-gold font-hud text-xs font-bold tracking-widest hover:bg-neon-gold hover:text-black transition-all clip-corner-br"
+                            onMouseEnter={() => audio.playSFX('hover')}
+                        >
+                            DEAL FINDER »
+                        </button>
+                        
+                        <div className="text-[9px] text-gray-600 font-mono mb-2 px-2">SECTORS</div>
+                        <button onClick={() => onNav('map')} className={`w-full text-left p-3 text-xs font-hud border-l-2 transition-all ${active === 'map' ? 'border-neon-cyan text-white bg-white/5' : 'border-transparent text-gray-500 hover:text-white'}`} onMouseEnter={() => audio.playSFX('hover')}>GLOBAL MAP</button>
+                        
+                        {SECTORS.map(s => (
+                            <button 
+                                key={s} 
+                                onClick={() => onNav(s)}
+                                onMouseEnter={() => audio.playSFX('hover')}
+                                className={`w-full text-left p-3 text-xs font-hud border-l-2 uppercase transition-all ${active === s ? 'border-neon-gold text-neon-gold bg-white/5' : 'border-transparent text-gray-500 hover:text-white'}`}
+                            >
+                                {s}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="p-4 border-t border-gray-800">
+                        <button onClick={onConsole} className="w-full py-2 text-[10px] font-mono text-gray-500 border border-dashed border-gray-800 hover:text-neon-cyan hover:border-neon-cyan transition-colors">TOGGLE LOGS</button>
+                    </div>
+                </nav>
+            )
+        };
+
+        const MobileNav = ({ onNav, onDeal }) => (
+            <div className="md:hidden fixed bottom-4 left-4 right-4 h-16 bg-panel/95 backdrop-blur border border-neon-cyan/50 rounded-lg flex z-50 shadow-2xl overflow-hidden">
+                <button onClick={() => onNav('map')} className="flex-1 flex flex-col items-center justify-center border-r border-gray-800 text-gray-400 active:text-neon-cyan">
+                    <span className="text-xl">⦿</span><span className="text-[9px] font-hud mt-1">MAP</span>
+                </button>
+                <button onClick={onDeal} className="flex-1 flex flex-col items-center justify-center border-r border-gray-800 text-neon-gold active:text-white">
+                    <span className="text-xl">⚡</span><span className="text-[9px] font-hud mt-1">DEALS</span>
+                </button>
+                <button onClick={() => onNav('goa')} className="flex-1 flex flex-col items-center justify-center text-gray-400 active:text-neon-cyan">
+                    <span className="text-xl">Ξ</span><span className="text-[9px] font-hud mt-1">LIST</span>
+                </button>
+            </div>
+        );
+
+        const PackageGrid = ({ data, onBook, clearance, onUnlock }) => {
+            const [expanded, setExpanded] = useState({});
+
+            const toggle = (idx) => {
+                audio.playSFX('click');
+                setExpanded(prev => ({...prev, [idx]: !prev[idx]}));
+            }
+
+            return (
+                <div className="w-full pb-24">
+                    <div className="mb-8 p-6 bg-gradient-to-r from-panel to-transparent border-l-4 border-neon-gold">
+                        <h2 className="text-3xl md:text-5xl font-display font-bold text-white mb-2">{data.title.split(':')[1]}</h2>
+                        <p className="font-hud text-xs md:text-sm text-gray-400 tracking-widest uppercase">{data.subtitle}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {data.missions.map((pkg, idx) => (
+                            <div key={idx} className="bg-panel border border-gray-800 hover:border-neon-gold transition-all group animate-fade-in-up" onMouseEnter={() => audio.playSFX('hover')}>
+                                <div className="h-48 relative overflow-hidden">
+                                    <img src={pkg.media[0].src} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 filter brightness-75 group-hover:brightness-100" />
+                                    <div className="absolute top-2 right-2 bg-black/80 px-2 py-1 text-[10px] font-hud text-white border border-gray-600">{pkg.threat} THREAT</div>
+                                </div>
+                                <div className="p-5">
+                                    <h3 className="font-hud text-lg text-white mb-1">{pkg.codename}</h3>
+                                    <div className="font-mono text-xl text-neon-gold mb-4">{pkg.price}</div>
+                                    <div className="grid grid-cols-2 gap-2 mb-4">
+                                        <div className="bg-black/50 p-2 border border-gray-800"><div className="text-[9px] text-gray-500">VFM</div><div className="text-green-400 text-sm font-bold font-mono">{pkg.vfm}</div></div>
+                                        <div className="bg-black/50 p-2 border border-gray-800"><div className="text-[9px] text-gray-500">TIME</div><div className="text-white text-sm font-bold font-mono">{pkg.duration}</div></div>
+                                    </div>
+                                    <p className="text-xs text-gray-400 font-mono mb-4 leading-relaxed">{pkg.brief}</p>
+                                    
+                                    <button onClick={() => onBook(pkg)} className="w-full py-3 bg-neon-gold text-black font-hud font-bold text-xs tracking-widest hover:bg-white mb-2 clip-corner-br shadow-[0_0_15px_rgba(255,215,0,0.2)]">BOOK MISSION</button>
+                                    <button onClick={() => toggle(idx)} className="w-full py-2 text-[10px] font-mono text-gray-500 hover:text-neon-cyan uppercase">{expanded[idx] ? '[-] HIDE INTEL' : '[+] EXPAND DOSSIER'}</button>
+                                    
+                                    {expanded[idx] && (
+                                        <div className="mt-4 pt-4 border-t border-gray-800 space-y-2">
+                                            {pkg.inclusions.map((inc, i) => (
+                                                <div key={i} className="flex gap-2 text-xs text-gray-300 font-mono"><span className="text-neon-gold">»</span>{inc}</div>
+                                            ))}
+                                            {pkg.lockedInclusions.map((inc, i) => (
+                                                <div 
+                                                    key={'l'+i} 
+                                                    onClick={() => clearance === 'RECRUIT' && onUnlock(pkg)}
+                                                    className={`flex gap-2 text-xs font-mono relative overflow-hidden ${clearance === 'RECRUIT' ? 'cursor-pointer group/lock' : ''}`}
+                                                >
+                                                    <span className={clearance === 'AGENT' ? 'text-neon-cyan' : 'text-neon-red'}>{clearance === 'AGENT' ? '🔓' : '🔒'}</span>
+                                                    {clearance === 'AGENT' ? <span className="text-neon-cyan shadow-glow">{inc}</span> : (
+                                                        <div className="relative w-full">
+                                                            <span className="blur-text opacity-50">{inc}</span>
+                                                            <div className="absolute inset-0 flex items-center bg-black/80 border border-neon-red/30"><span className="mx-auto text-[9px] text-neon-red tracking-widest">ACCESS DENIED</span></div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )
+        };
+
+        const IndiaMap = ({ onSectorSelect }) => {
+            const mapRef = useRef(null);
+            
+            useEffect(() => {
+                if(!mapRef.current) return;
+                const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false, scrollWheelZoom: false }).setView([22.5, 79.0], window.innerWidth < 768 ? 4 : 5);
+                
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+                const coords = {
+                    goa: [15.4909, 73.8278],
+                    himachal: [32.2432, 77.1892],
+                    rajasthan: [26.9124, 75.7873],
+                    kerala: [9.9312, 76.2673],
+                    uttarakhand: [30.3165, 78.0322],
+                    karnataka: [15.3350, 76.4600],
+                    meghalaya: [25.5788, 91.8933]
+                };
+
+                Object.entries(coords).forEach(([key, val]) => {
+                     const icon = L.divIcon({
+                        className: 'bg-transparent',
+                        html: `<div class="relative flex items-center justify-center w-12 h-12 -translate-x-1/2 -translate-y-1/2 group cursor-pointer"><div class="radar-ring"></div><div class="radar-marker"></div><div class="absolute top-8 bg-black border border-neon-cyan px-2 py-1 text-[9px] font-mono text-neon-cyan uppercase opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 pointer-events-none">${key.toUpperCase()}</div></div>`,
+                        iconSize: [48, 48]
+                     });
+                     L.marker(val, {icon}).addTo(map).on('click', () => onSectorSelect(key));
+                });
+                
+                setTimeout(() => map.invalidateSize(), 500);
+
+                return () => map.remove();
+            }, []);
+
+            return <div ref={mapRef} className="w-full h-full bg-[#111] z-0 min-h-[50vh] md:min-h-full rounded-lg overflow-hidden border border-gray-800" />;
+        };
+
+        const LeadModal = ({ pkg, onClose, onSubmit }) => {
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+                    <div className="w-full max-w-md bg-panel border-2 border-neon-cyan p-6 shadow-[0_0_50px_rgba(0,240,255,0.2)]">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="font-hud text-xl text-white">CLEARANCE PROTOCOL</h2>
+                            <div className="w-2 h-2 bg-neon-cyan rounded-full animate-ping"></div>
+                        </div>
+                        <div className="mb-6 p-4 border border-dashed border-gray-700 bg-black/50 flex gap-4">
+                             <div className="text-4xl text-gray-700">?</div>
+                             <div>
+                                 <div className="text-[9px] font-mono text-neon-gold">TARGET</div>
+                                 <div className="font-hud text-white">{pkg.codename}</div>
+                             </div>
+                        </div>
+                        <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-4">
+                            <input type="text" placeholder="AGENT ID" className="w-full bg-black border border-gray-700 p-3 text-white font-mono text-xs focus:border-neon-cyan outline-none" required />
+                            <input type="email" placeholder="SECURE UPLINK (EMAIL)" className="w-full bg-black border border-gray-700 p-3 text-white font-mono text-xs focus:border-neon-cyan outline-none" required />
+                            <button type="submit" className="w-full py-4 bg-neon-cyan text-black font-black font-hud tracking-widest hover:bg-white shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all">GRANT CLEARANCE</button>
+                        </form>
+                        <button onClick={onClose} className="w-full mt-4 text-[10px] text-gray-500 font-mono hover:text-white">ABORT MISSION</button>
+                    </div>
+                </div>
+            )
+        };
+
+        const DealModal = ({ onClose, onUnlock }) => {
+            const [step, setStep] = useState(1);
+            const [sector, setSector] = useState("");
+            const [vibe, setVibe] = useState("");
+            
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4">
+                    <div className="w-full max-w-lg bg-panel border-2 border-neon-gold p-8 relative overflow-hidden">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="font-hud text-xl text-neon-gold">TACTICAL WIZARD // PHASE {step}</h2>
+                            <div className="font-mono text-xs text-neon-cyan">0{step}/02</div>
+                        </div>
+
+                        {step === 1 && (
+                            <div className="space-y-6 animate-fade-in-up">
+                                <div>
+                                    <label className="block text-xs font-mono text-gray-500 mb-2">TARGET SECTOR</label>
+                                    <select onChange={e => setSector(e.target.value)} className="w-full bg-black border border-gray-700 p-3 text-white font-mono focus:border-neon-gold outline-none">
+                                        <option value="">-- SELECT --</option>
+                                        {SECTORS.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-mono text-gray-500 mb-2">MODE</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {['CHILL', 'PARTY', 'ADVENTURE', 'CULTURE'].map(v => (
+                                            <button key={v} onClick={() => setVibe(v)} className={`p-3 border text-xs font-mono text-left ${vibe === v ? 'border-neon-cyan text-neon-cyan bg-neon-cyan/10' : 'border-gray-700 text-gray-500'}`}>{v}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <button disabled={!sector || !vibe} onClick={() => setStep(2)} className="w-full py-4 bg-neon-gold text-black font-bold font-hud tracking-widest disabled:opacity-50">CONFIRM PROTOCOLS »</button>
+                            </div>
+                        )}
+
+                        {step === 2 && (
+                            <div className="space-y-6 animate-fade-in-up">
+                                <div className="p-4 bg-black/50 border-l-2 border-neon-red">
+                                    <div className="text-neon-red font-hud text-sm mb-1">⚠ DECRYPTION KEY REQUIRED</div>
+                                    <p className="text-gray-500 font-mono text-xs">Matching assets found. Enter uplink to decrypt.</p>
+                                </div>
+                                <form onSubmit={(e) => { e.preventDefault(); onUnlock(); }} className="space-y-4">
+                                    <input type="email" placeholder="ENTER UPLINK (EMAIL)" className="w-full bg-black border border-gray-700 p-4 text-center text-white font-mono tracking-widest focus:border-neon-red outline-none" required />
+                                    <button type="submit" className="w-full py-4 bg-neon-red text-white font-bold font-hud tracking-widest hover:bg-white hover:text-black shadow-[0_0_20px_rgba(255,0,0,0.5)]">DECRYPT RESULTS</button>
+                                </form>
+                            </div>
+                        )}
+                        <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 font-mono">[X]</button>
+                    </div>
+                </div>
+            )
+        };
+
+        const ConsoleLog = ({ logs, isOpen }) => (
+             <div className={`fixed bottom-4 right-4 w-80 h-48 bg-black/90 border border-neon-cyan p-2 font-mono text-[10px] z-50 transition-all ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none translate-y-4'}`}>
+                 <div className="h-full overflow-y-auto custom-scrollbar">
+                     {logs.map((l, i) => <div key={i} className="mb-1 text-neon-cyan">>{l}</div>)}
+                 </div>
+             </div>
+        );
+
+        // --- MAIN APP ---
+        const App = () => {
+            const [view, setView] = useState('map');
+            const [booted, setBooted] = useState(false);
+            const [clearance, setClearance] = useState('RECRUIT');
+            const [showDeal, setShowDeal] = useState(false);
+            const [showLead, setShowLead] = useState(false);
+            const [selectedPkg, setSelectedPkg] = useState(null);
+            const [logs, setLogs] = useState([]);
+            const [consoleOpen, setConsoleOpen] = useState(false);
+
+            const addLog = (msg) => setLogs(p => [...p.slice(-20), msg]);
+
+            const handleUnlock = (pkg) => {
+                audio.playSFX('click');
+                setSelectedPkg(pkg);
+                setShowLead(true);
+            };
+
+            const handleGrant = () => {
+                audio.playSFX('success');
+                setClearance('AGENT');
+                setShowLead(false);
+                setShowDeal(false);
+                addLog('CLEARANCE GRANTED: AGENT LEVEL');
+            };
+
+            if (!booted) return <LoadingScreen onComplete={() => setBooted(true)} />;
+
+            return (
+                <div className="flex flex-col h-screen w-full relative overflow-hidden bg-void">
+                    <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
+                    
+                    <Header clearance={clearance} />
+                    
+                    <div className="flex-1 flex overflow-hidden relative z-10">
+                        <Sidebar 
+                            active={view} 
+                            onNav={(v) => { audio.playSFX('click'); setView(v); }}
+                            onDeal={() => { audio.playSFX('click'); setShowDeal(true); }}
+                            onConsole={() => { audio.playSFX('click'); setConsoleOpen(!consoleOpen); }}
+                        />
+                        
+                        <main className="flex-1 relative overflow-y-auto p-4 md:p-8 scroll-smooth pb-24 md:pb-8">
+                            {view === 'map' && (
+                                <div className="h-full flex flex-col gap-4">
+                                    <div>
+                                        <h2 className="text-3xl md:text-5xl font-display font-bold text-white cyber-glitch" data-text="GLOBAL INTEL">GLOBAL INTEL</h2>
+                                        <p className="text-xs font-mono text-neon-gold tracking-widest mt-2">SELECT DEPLOYMENT ZONE</p>
+                                    </div>
+                                    <div className="flex-1 border border-gray-800 rounded-lg overflow-hidden relative shadow-2xl">
+                                        <IndiaMap onSectorSelect={(s) => { audio.playSFX('success'); setView(s); }} />
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {SECTORS.includes(view) && (
+                                <PackageGrid 
+                                    data={PACKAGES[view]} 
+                                    onBook={(pkg) => { handleUnlock(pkg); }}
+                                    clearance={clearance}
+                                    onUnlock={handleUnlock}
+                                />
+                            )}
+                        </main>
+                    </div>
+
+                    <MobileNav 
+                        onNav={(v) => { audio.playSFX('click'); setView(v); }}
+                        onDeal={() => { audio.playSFX('click'); setShowDeal(true); }}
+                    />
+
+                    <ConsoleLog logs={logs} isOpen={consoleOpen} />
+
+                    {showDeal && <DealModal onClose={() => setShowDeal(false)} onUnlock={handleGrant} />}
+                    {showLead && <LeadModal pkg={selectedPkg} onClose={() => setShowLead(false)} onSubmit={handleGrant} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
